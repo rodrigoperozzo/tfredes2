@@ -11,17 +11,31 @@
 #include <netinet/tcp.h>
 
 
+
+
 #define ETHERTYPE_LEN 2
 #define MAC_ADDR_LEN 6
 #define BUFFER_LEN 1518
 #define IPV6_LEN 40
+#define IPV6_HEADER_LEN 24
+#define TCP_HDRLEN 20
+
+int *allocate_intmem (int);
+
+
+int i;
+int *tcp_flags, *ip_flags;
+struct tcphdr tcphdr;
+//struct ip iphdr;
 
 // Atencao!! Confira no /usr/include do seu sisop o nome correto
 // das estruturas de dados dos protocolos.
 
+
 typedef unsigned char MacAddress[MAC_ADDR_LEN];
 typedef unsigned char IPv6Header[IPV6_HEADER_LEN];
 extern int errno;
+
 
 unsigned short in_cksum(unsigned short *addr,int len)
 {
@@ -54,13 +68,16 @@ unsigned short in_cksum(unsigned short *addr,int len)
 }
 
 
-
 int main()
 {
   int sockFd = 0, retValue = 0;
   char buffer[BUFFER_LEN], dummyBuf[50];
   struct sockaddr_ll destAddr;
   short int etherTypeT = htons(0x8200);
+
+
+  tcp_flags = allocate_intmem(8);
+  ip_flags = allocate_intmem(8);
 
   /* Configura MAC Origem e Destino */
   MacAddress localMac = {0x00, 0x0B, 0xCD, 0xA8, 0x6D, 0x91};
@@ -69,6 +86,8 @@ int main()
   /* Criacao do socket. Todos os pacotes devem ser construidos a partir do protocolo Ethernet. */
   /* De um "man" para ver os parametros.*/
   /* htons: converte um short (2-byte) integer para standard network byte order. */
+  
+  
   if((sockFd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
     printf("Erro na criacao do socket.\n");
     exit(1);
@@ -99,65 +118,67 @@ int main()
                      ipDestino[0], ipDestino[1], ipDestino[2], ipDestino[3], ipDestino[4], ipDestino[5], ipDestino[6], ipDestino[7], ipDestino[8], ipDestino[9], ipDestino[10], ipDestino[11], ipDestino[12], ipDestino[13], ipDestino[14], ipDestino[15]}; 
 
 
-  // TCP header
+  unsigned char sequenceNumber[4] = { 0x00, 0x00, 0x00, 0x00};
 
+  // TCP header
+  
   // Source port number (16 bits)
   tcphdr.th_sport = htons (60);
-
+  
   // Destination port number (16 bits)
   tcphdr.th_dport = htons (80);
-
+  
   // Sequence number (32 bits)
   tcphdr.th_seq = htonl (0);
-
+  
   // Acknowledgement number (32 bits): 0 in first packet of SYN/ACK process
   tcphdr.th_ack = htonl (0);
-
+  
   // Reserved (4 bits): should be 0
   tcphdr.th_x2 = 0;
-
+  
   // Data offset (4 bits): size of TCP header in 32-bit words
   tcphdr.th_off = TCP_HDRLEN / 4;
-
+  
   // Flags (8 bits)
-
+  
   // FIN flag (1 bit)
   tcp_flags[0] = 0;
-
+  
   // SYN flag (1 bit): set to 1
   tcp_flags[1] = 1;
-
+  
   // RST flag (1 bit)
   tcp_flags[2] = 0;
-
+  
   // PSH flag (1 bit)
   tcp_flags[3] = 0;
-
+  
   // ACK flag (1 bit)
   tcp_flags[4] = 0;
-
+  
   // URG flag (1 bit)
   tcp_flags[5] = 0;
-
+  
   // ECE flag (1 bit)
   tcp_flags[6] = 0;
-
+  
   // CWR flag (1 bit)
   tcp_flags[7] = 0;
-
+  
   tcphdr.th_flags = 0;
   for (i=0; i<8; i++) {
     tcphdr.th_flags += (tcp_flags[i] << i);
   }
-
+  
   // Window size (16 bits)
   tcphdr.th_win = htons (65535);
-
+  
   // Urgent pointer (16 bits): 0 (only valid if URG flag is set)
   tcphdr.th_urp = htons (0);
-
+  
   // TCP checksum (16 bits)
-  tcphdr.th_sum = in_checksum (iphdr, tcphdr);
+  tcphdr.th_sum = in_checksum (ipv6, tcphdr);
 
 
 
